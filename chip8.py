@@ -7,9 +7,10 @@ Module Docstring
 import inspect  #for debug
 import random
 import pygame
+from pygame.locals import *
 
 __version__ = "0.1"
-__all__ = []
+__all__ = [Chip8]
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
@@ -17,6 +18,23 @@ RATIO = 1
 
 bgcolor = BLACK
 fgcolor = WHITE
+
+# Keypad                   Keyboard
+# +-+-+-+-+                +-+-+-+-+
+# |1|2|3|C|                |1|2|3|4|
+# +-+-+-+-+                +-+-+-+-+
+# |4|5|6|D|                |Q|W|E|R|
+# +-+-+-+-+       =>       +-+-+-+-+
+# |7|8|9|E|                |A|S|D|F|
+# +-+-+-+-+                +-+-+-+-+
+# |A|0|B|F|                |Z|X|C|V|
+# +-+-+-+-+                +-+-+-+-+
+key_map = [
+        K_x, K_1, K_2, K_3, #0, 1, 2, 3
+        K_q, K_w, K_e, K_a, #4, 5, 6, 7
+        K_s, K_d, K_z, K_c, #8, 9, A, B
+        K_4, K_r, K_f, K_v, #C, D, E, F
+        ]
 
 class Errno:
     ENONE = 0x0
@@ -321,7 +339,13 @@ class Chip8:
             self.reg[vx] = self.delay_timer
         elif subop == 0x0a:
             # FX0A: A key press is awaited, and then stored in VX.
-            pass
+            done = False
+            while not done:
+                for event in pygame.event.get():
+                    if event.type == KEYDOWN:
+                        if event.key in key_map:
+                            done = True
+                            self.reg[vx] = key_map.index(event.key)
         elif subop == 0x15:
             # FX15: Sets the delay timer to VX.
             self.delay_timer = self.reg[vx]
@@ -360,21 +384,28 @@ class Chip8:
             # FX65: Fills V0 to VX with values from memory starting at address I.
             for i in range(0, vx+1):
                 self.reg[i] = self.memory[self.I+i]
-            pass
         else:
             print "error: unsupported opcode: {:04x}".format(self.opcode)
-        pass
 
     def run(self):
         while True:
-            #  Chip-8 are all two bytes long and stored big-endian
+            # handle event
+            for event in pygame.event.get():
+                if event.type == QUIT:
+                    break
+                elif event.type == KEYDOWN:
+                    if event.key in key_map:
+                        self.key[key_map.index(event.key)] = 1
+                elif event.type == KEYUP:
+                    if event.key in key_map:
+                        self.key[key_map.index(event.key)] = 0
+            # Chip-8 are all two bytes long and stored big-endian
             self.opcode = (self.memory[self.pc] << 8) + self.memory[self.pc + 1]
             #print "0x{:04x}".format(self.opcode)
             self.pc += 2
             opc = self.opcode >> 12
             func_str = "op_" + "{:X}".format(opc)
             getattr(self, func_str)()
-
 
 def test():
     """Chip8 test"""
