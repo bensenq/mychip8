@@ -13,7 +13,7 @@ __all__ = []
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
-RATIO = 10
+RATIO = 1
 
 bgcolor = BLACK
 fgcolor = WHITE
@@ -81,10 +81,10 @@ class Chip8:
             color = fgcolor
         else:
             color = bgcolor
-        pygame.draw.rect(self.screen, color, (x*RATIO, y*RATIO, RATIO, RATIO), 0)
+        self.screen.fill(color, ((x*RATIO, y*RATIO), (RATIO, RATIO)))
 
     def clear_screen(self):
-        pygame.draw.rect(self.screen, bgcolor, (0, 0, 64*RATIO, 32*RATIO), 0)
+        self.screen.fill(bgcolor, ((0, 0), (64*RATIO, 32*RATIO)))
 
     def __init__(self, romfile):
         # general registers: 8-bit wide
