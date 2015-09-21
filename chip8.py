@@ -6,9 +6,17 @@ Module Docstring
 
 import inspect  #for debug
 import random
+import pygame
 
 __version__ = "0.1"
 __all__ = []
+
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+RATIO = 10
+
+bgcolor = BLACK
+fgcolor = WHITE
 
 class Errno:
     ENONE = 0x0
@@ -68,6 +76,16 @@ class Chip8:
             line = ["{:02x}".format(v) for v in self.memory[(x*16):(x+1)*16]]
             print "0x{:03x}: ".format(x * 16) + " ".join(line)
 
+    def draw_pixel(self, pixel, x, y):
+        if pixel == 1:
+            color = fgcolor
+        else:
+            color = bgcolor
+        pygame.draw.rect(self.screen, color, (x*RATIO, y*RATIO, RATIO, RATIO), 0)
+
+    def clear_screen(self):
+        pygame.draw.rect(self.screen, bgcolor, (0, 0, 64*RATIO, 32*RATIO), 0)
+
     def __init__(self, romfile):
         # general registers: 8-bit wide
         self.reg = [0 for x in range(0, 16)]
@@ -79,8 +97,6 @@ class Chip8:
         self.memory = [0 for x in range(0, 4096)]
         # key state: 1 for pressed, otherwise 0
         self.key = [0 for x in range(0, 16)]
-        # screen
-        self.screen_pixels = [[0 for x in range(0,64)] for y in range(0,32)]
         # delay timer
         self.delay_timer = 0
         # sound timer
@@ -92,14 +108,26 @@ class Chip8:
         # load program at 0x200
         self.load_rom(romfile)
         # pc
-        self.pc = 0
+        self.pc = 0x200
         # opcode
         self.opcode = 0
+        # init screen
+        pygame.init()
+        # 1x1 block is RATIOxRATIO
+        size = (64*RATIO, 32*RATIO)
+        self.screen = pygame.display.set_mode(size)
+        pygame.display.set_caption("Chip-8 Screen")
+        # clear screen
+        self.pixels = [[0 for x in range(0,64)] for y in range(0,32)]
+        self.clear_screen()
+        pygame.display.flip()
 
     def op_0(self):
         if self.opcode == 0xe0:
             # 00E0: Clear the screen.
-            pass
+            self.pixels = [[0 for x in range(0,64)] for y in range(0,32)]
+            self.clear_screen()
+            pygame.display.flip()
         elif self.opcode == 0xee:
             # 00EE: Returns from a subroutine.
             if len(self.stack) == 0:
@@ -109,7 +137,7 @@ class Chip8:
                 del self.stack[-1]
         else:
             # 0NNN: Calls RCA 1802 program at address NNN. Not necessary for most ROMs.
-            print "error: unsupported opcode", self.opcode
+            print "error: unsupported opcode: {:04x}".format(self.opcode)
 
     def op_1(self):
         # 1NNN: Jumps to address NNN.
@@ -121,7 +149,7 @@ class Chip8:
             print "the stack is full"
         else:
             self.stack.append(self.pc)
-            self.pc = self.opcode & 0xfff 
+            self.pc = self.opcode & 0xfff
 
     def op_3(self):
         # 3XNN: Skips the next instruction if VX equals NN.
@@ -145,8 +173,7 @@ class Chip8:
             if self.reg[vx] == self.reg[vy]:
                 self.pc += 2
         else:
-            print "error: unsupported opcode", self.opcode
-            
+            print "error: unsupported opcode: {:04x}".format(self.opcode)
 
     def op_6(self):
         # 6XNN: Sets VX to NN.
@@ -159,7 +186,6 @@ class Chip8:
         vx = (self.opcode & 0x0f00) >> 8
         nn = self.opcode & 0xff
         self.reg[vx] += nn
-        pass
 
     def op_8(self):
         subop = self.opcode & 0xf
@@ -192,7 +218,7 @@ class Chip8:
             if self.reg[vx] >= slef.reg[vy]:
                 self.reg[vx] -= self.reg[vy]
                 self.reg[0xf] = 1
-            else
+            else:
                 self.reg[vx] = self.reg[vx] + 0xff - self.reg[vy]
                 self.reg[0xf] = 0
         elif subop == 6:
@@ -206,7 +232,7 @@ class Chip8:
             if self.reg[vy] >= slef.reg[vx]:
                 self.reg[vx] -= self.reg[vy]
                 self.reg[0xf] = 1
-            else
+            else:
                 self.reg[vx] = self.reg[vy] + 0xff - self.reg[vy]
                 self.reg[0xf] = 0
         elif subop == 15:
@@ -215,7 +241,7 @@ class Chip8:
             self.reg[0xf] = (self.reg[vx] >> 7) & 0x1
             self.reg[vx] <<= 1
         else:
-            print "error: unsupported opcode", self.opcode
+            print "error: unsupported opcode: {:04x}".format(self.opcode)
 
     def op_9(self):
         if self.opcode & 0xf == 0:
@@ -225,7 +251,7 @@ class Chip8:
             if self.reg[vx] != self.reg[vy]:
                 self.pc += 2
         else:
-            print "error: unsupported opcode", self.opcode
+            print "error: unsupported opcode: {:04x}".format(self.opcode)
 
     def op_A(self):
         # ANNN: Sets I to the address NNN.
@@ -249,7 +275,28 @@ class Chip8:
         # screen pixels). Sprites are drawn starting at position VX, VY. N is the number 
         # of 8bit rows that need to be drawn. If N is greater than 1, second line continues 
         # at position VX, VY+1, and so on.
-        pass
+        #print "op_D: {:04x}".format(self.opcode)
+        #print "Index: ", self.I
+        height = self.opcode & 0x000f
+        vx = (self.opcode & 0x0f00) >> 8
+        vy = (self.opcode & 0x00f0) >> 4
+        x = self.reg[vx]
+        y = self.reg[vy]
+        # no collision yet
+        self.reg[0xf] = 0
+        for i in range(0, height):
+            ymod = (y + i) % 32
+            byte = self.memory[self.I + i]
+            for j in range(0, 8):
+                xmod = (x + j) % 64
+                bit = (byte >> (7 - j)) & 0x1
+                if bit == 0x1:
+                    self.pixels[ymod][xmod] ^= bit
+                    self.draw_pixel(self.pixels[ymod][xmod], xmod, ymod)
+                    if self.pixels[ymod][xmod] == 0x0:
+                        # collision detected
+                        self.reg[0xf] = 1
+        pygame.display.flip()
 
     def op_E(self):
         subop = self.opcode & 0xff
@@ -264,7 +311,7 @@ class Chip8:
             if self.key[key] == 0:
                 self.pc += 2
         else:
-            print "error: unsupported opcode", self.opcode
+            print "error: unsupported opcode: {:04x}".format(self.opcode)
 
     def op_F(self):
         subop = self.opcode & 0xff
@@ -302,35 +349,40 @@ class Chip8:
             # in memory at location in I, the tens digit at location I+1, and the 
             # ones digit at location I+2.)
             temp = self.reg[vx]
-            self.memory[I] = temp / 100
-            self.memory[I+1] = (temp / 10) % 10
-            self.memory[I+2] = temp % 10
+            self.memory[self.I] = temp / 100
+            self.memory[self.I+1] = (temp / 10) % 10
+            self.memory[self.I+2] = temp % 10
         elif subop == 0x55:
             # FX55: Stores V0 to VX in memory starting at address I.
             for i in range(0, vx+1):
-                self.memory[I+i] = self.reg[i]
+                self.memory[self.I+i] = self.reg[i]
         elif subop == 0x65:
             # FX65: Fills V0 to VX with values from memory starting at address I.
             for i in range(0, vx+1):
-                self.reg[i] = self.memory[I+i]
+                self.reg[i] = self.memory[self.I+i]
             pass
         else:
-            print "error: unsupported opcode", self.opcode
+            print "error: unsupported opcode: {:04x}".format(self.opcode)
         pass
 
     def run(self):
         while True:
-            self.opcode = get_word(self.memory, self.pc)
+            #  Chip-8 are all two bytes long and stored big-endian
+            self.opcode = (self.memory[self.pc] << 8) + self.memory[self.pc + 1]
+            #print "0x{:04x}".format(self.opcode)
             self.pc += 2
-            opc = opcode >> 12
+            opc = self.opcode >> 12
             func_str = "op_" + "{:X}".format(opc)
             getattr(self, func_str)()
 
 
 def test():
     """Chip8 test"""
-    chip8 = Chip8('TANK')
-    chip8.dump_memory()
+    #chip8 = Chip8('TANK')
+    chip8 = Chip8('IBM')
+    #while True:
+    #    pass
+    #chip8.dump_memory()
     chip8.run()
 
 if __name__=='__main__':
