@@ -10,11 +10,11 @@ import pygame
 from pygame.locals import *
 
 __version__ = "0.1"
-__all__ = [Chip8]
+__all__ = ["Chip8"]
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
-RATIO = 1
+RATIO = 10
 
 bgcolor = BLACK
 fgcolor = WHITE
@@ -388,16 +388,20 @@ class Chip8:
             print "error: unsupported opcode: {:04x}".format(self.opcode)
 
     def run(self):
-        while True:
+        done = True
+        while done:
             # handle event
             for event in pygame.event.get():
                 if event.type == QUIT:
+                    done = False
                     break
                 elif event.type == KEYDOWN:
                     if event.key in key_map:
+                        print "key down: ", key_map.index(event.key)
                         self.key[key_map.index(event.key)] = 1
                 elif event.type == KEYUP:
                     if event.key in key_map:
+                        print "key up: ", key_map.index(event.key)
                         self.key[key_map.index(event.key)] = 0
             # Chip-8 are all two bytes long and stored big-endian
             self.opcode = (self.memory[self.pc] << 8) + self.memory[self.pc + 1]
