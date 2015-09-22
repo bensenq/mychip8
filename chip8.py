@@ -205,7 +205,7 @@ class Chip8:
         # 7XNN: Adds NN to VX.
         vx = (self.opcode & 0x0f00) >> 8
         nn = self.opcode & 0xff
-        self.reg[vx] += nn
+        self.reg[vx] = (self.reg[vx] + nn) & 0xff
 
     def op_8(self):
         subop = self.opcode & 0xf
@@ -235,11 +235,11 @@ class Chip8:
         elif subop == 5:
             # 8XY5: VY is subtracted from VX. VF is set to 0 when 
             # there's a borrow, and 1 when there isn't.
-            if self.reg[vx] >= slef.reg[vy]:
+            if self.reg[vx] >= self.reg[vy]:
                 self.reg[vx] -= self.reg[vy]
                 self.reg[0xf] = 1
             else:
-                self.reg[vx] = self.reg[vx] + 0xff - self.reg[vy]
+                self.reg[vx] = self.reg[vx] + 0x100 - self.reg[vy]
                 self.reg[0xf] = 0
         elif subop == 6:
             # 8XY6: Shifts VX right by one. VF is set to the value of 
@@ -250,10 +250,10 @@ class Chip8:
             # 8XY7: Sets VX to VY minus VX. VF is set to 0 when there's 
             # a borrow, and 1 when there isn't.
             if self.reg[vy] >= slef.reg[vx]:
-                self.reg[vx] -= self.reg[vy]
+                self.reg[vx] = self.reg[vy] - self.reg[vx]
                 self.reg[0xf] = 1
             else:
-                self.reg[vx] = self.reg[vy] + 0xff - self.reg[vy]
+                self.reg[vx] = self.reg[vy] + 0x100 - self.reg[vx]
                 self.reg[0xf] = 0
         elif subop == 15:
             # 8XYE: Shifts VX left by one. VF is set to the value of 
@@ -309,9 +309,10 @@ class Chip8:
             byte = self.memory[self.I + i]
             for j in range(0, 8):
                 xmod = (x + j) % 64
+                #if (y+i) >= 0 and (y+i) < 32 and (x+j) >= 0 and (x+j) < 64:
                 bit = (byte >> (7 - j)) & 0x1
-                if bit == 0x1:
-                    self.pixels[ymod][xmod] ^= bit
+                if bit == 1:
+                    self.pixels[ymod][xmod] ^= 1 
                     self.draw_pixel(self.pixels[ymod][xmod], xmod, ymod)
                     if self.pixels[ymod][xmod] == 0x0:
                         # collision detected
@@ -420,7 +421,7 @@ class Chip8:
                 self.delay_timer -= 1
             if self.sound_timer > 0:
                 self.sound_timer -= 1
-            self.clock.tick(300)
+            self.clock.tick(600)
 
 def test():
     """Chip8 test"""
