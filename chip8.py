@@ -139,6 +139,8 @@ class Chip8:
         self.pixels = [[0 for x in range(0,64)] for y in range(0,32)]
         self.clear_screen()
         pygame.display.flip()
+        # set frequency
+        self.clock = pygame.time.Clock()
 
     def op_0(self):
         if self.opcode == 0xe0:
@@ -318,7 +320,7 @@ class Chip8:
 
     def op_E(self):
         subop = self.opcode & 0xff
-        vx = (self.opcde & 0x0f00) >> 8
+        vx = (self.opcode & 0x0f00) >> 8
         key = self.reg[vx]
         if subop == 0x9e:
             # EX9E: Skips the next instruction if the key stored in VX is pressed.
@@ -403,18 +405,27 @@ class Chip8:
                     if event.key in key_map:
                         print "key up: ", key_map.index(event.key)
                         self.key[key_map.index(event.key)] = 0
-            # Chip-8 are all two bytes long and stored big-endian
+            # fecth code: Chip-8 are all two bytes long and stored big-endian
             self.opcode = (self.memory[self.pc] << 8) + self.memory[self.pc + 1]
             #print "0x{:04x}".format(self.opcode)
+            # update program counter
             self.pc += 2
             opc = self.opcode >> 12
+            # decode opcode
             func_str = "op_" + "{:X}".format(opc)
+            # excute
             getattr(self, func_str)()
+            # update timer
+            if self.delay_timer > 0:
+                self.delay_timer -= 1
+            if self.sound_timer > 0:
+                self.sound_timer -= 1
+            self.clock.tick(300)
 
 def test():
     """Chip8 test"""
-    #chip8 = Chip8('TANK')
-    chip8 = Chip8('IBM')
+    chip8 = Chip8('TANK')
+    #chip8 = Chip8('IBM')
     #while True:
     #    pass
     #chip8.dump_memory()
