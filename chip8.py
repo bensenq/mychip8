@@ -6,6 +6,8 @@ Module Docstring
 
 import inspect  #for debug
 import random
+import threading
+import time
 import pygame
 from pygame.locals import *
 
@@ -104,6 +106,14 @@ class Chip8:
     def clear_screen(self):
         self.screen.fill(bgcolor, ((0, 0), (64*RATIO, 32*RATIO)))
 
+    def timer_handler(self):
+        if self.delay_timer > 0:
+            self.delay_timer -= 1
+        if self.sound_timer > 0:
+            self.sound_timer -= 1
+        self.timer = threading.Timer(1.0/60, self.timer_handler)
+        self.timer.start()
+
     def __init__(self, romfile):
         # general registers: 8-bit wide
         self.reg = [0 for x in range(0, 16)]
@@ -141,6 +151,8 @@ class Chip8:
         pygame.display.flip()
         # set frequency
         self.clock = pygame.time.Clock()
+        # set timer
+        self.timer = threading.Timer(1.0/60, self.timer_handler)
 
     def op_0(self):
         if self.opcode == 0xe0:
@@ -392,10 +404,12 @@ class Chip8:
 
     def run(self):
         done = True
+        self.timer.start()
         while done:
             # handle event
             for event in pygame.event.get():
                 if event.type == QUIT:
+                    self.timer.cancel()
                     done = False
                     break
                 elif event.type == KEYDOWN:
@@ -417,10 +431,10 @@ class Chip8:
             # excute
             getattr(self, func_str)()
             # update timer
-            if self.delay_timer > 0:
-                self.delay_timer -= 1
-            if self.sound_timer > 0:
-                self.sound_timer -= 1
+            #if self.delay_timer > 0:
+            #    self.delay_timer -= 1
+            #if self.sound_timer > 0:
+            #    self.sound_timer -= 1
             self.clock.tick(600)
 
 def test():
