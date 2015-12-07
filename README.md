@@ -1,6 +1,11 @@
 # chip8 in python
 A chip8 interpreter by python.
 
+## usage
+```
+python chip8.py ROMFILE
+```
+
 ## keypad mapping
 ```
   Keypad                   Keyboard
