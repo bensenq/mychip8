@@ -2,7 +2,7 @@
 A chip8 interpreter by python.
 
 ## keypad mapping
-
+```
   Keypad                   Keyboard
   +-+-+-+-+                +-+-+-+-+
   |1|2|3|C|                |1|2|3|4|
@@ -13,3 +13,4 @@ A chip8 interpreter by python.
   +-+-+-+-+                +-+-+-+-+
   |A|0|B|F|                |Z|X|C|V|
   +-+-+-+-+                +-+-+-+-+
+```
